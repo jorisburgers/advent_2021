@@ -24,15 +24,16 @@ pInstructions = many (pInstruction <* (() <$ endOfLine <|> eof) )
 data SubState = SubState 
   { stateDepth :: Int
   , stateHorizontal :: Int
-  }
+  , stateAim :: Int
+  } deriving Show
 
 emptyState :: SubState
-emptyState = SubState 0 0 
+emptyState = SubState 0 0 0
 
 executeCommand :: SubState -> Command -> SubState
-executeCommand s (Up n) = s {stateDepth = stateDepth s - n}
-executeCommand s (Down n) = s {stateDepth = stateDepth s + n}
-executeCommand s (Forward n) = s {stateHorizontal = stateHorizontal s + n}
+executeCommand s (Up n) = s {stateAim = stateAim s - n}
+executeCommand s (Down n) = s {stateAim = stateAim s + n}
+executeCommand s (Forward n) = s {stateHorizontal = stateHorizontal s + n, stateDepth = stateDepth s + stateAim s * n }
 
 eval :: SubState -> [Command] -> SubState
 eval s = foldl' executeCommand s

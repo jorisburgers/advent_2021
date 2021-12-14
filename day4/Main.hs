@@ -1,4 +1,5 @@
-
+{-# LANGUAGE TupleSections #-}
+import Data.List (partition)
 
 import Text.Parsec
 import Text.Parsec.String
@@ -66,16 +67,13 @@ colls = filterPosition fst
 hasBingo :: Board -> Bool
 hasBingo board = any (all cellMarked) (rows board) || any (all cellMarked) (colls board)
 
-applyUntilBingo :: [Board] -> [Int] -> (Int, Board)
-applyUntilBingo [] _ = error "No boards left"
-applyUntilBingo _ [] = error "No entries left"
+applyUntilBingo :: [Board] -> [Int] -> [(Int, Board)]
+applyUntilBingo [] _ = []
+applyUntilBingo _ [] = []
 applyUntilBingo boards (v:vs) =
   let markedBoards = map (mark v) boards
-      bingoBoards = filter hasBingo markedBoards
-  in case bingoBoards of
-    -- We have a bingo board, return it
-    (x:_) -> (v, x )
-    _ -> applyUntilBingo markedBoards vs
+      (bingoBoards, nonBingoBoards) = partition hasBingo markedBoards
+  in (map (v,) bingoBoards) <> (applyUntilBingo nonBingoBoards vs)
 
 unmarkedSum :: Board -> Int
 unmarkedSum (Board cells) = sum $ map cellValue $ filter (not . cellMarked) cells
@@ -87,5 +85,7 @@ main = do
   case res of 
     Left e -> print e
     Right (entries, boards) -> do
-      let (lastValue, winningBoard) = applyUntilBingo boards entries
-      print (unmarkedSum winningBoard * lastValue)
+      case applyUntilBingo boards entries of
+        [] -> error "Somehow, no board won"
+        xs -> let (lastValue, winningBoard) = last xs in 
+              print (unmarkedSum winningBoard * lastValue)

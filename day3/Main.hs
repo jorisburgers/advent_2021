@@ -5,7 +5,7 @@ import Text.Parsec.String
 import qualified Data.Map as M
 
 data Bit = Zero | One
-  deriving Show
+  deriving (Show, Eq)
 
 inv :: Bit -> Bit
 inv Zero = One
@@ -47,7 +47,7 @@ getCount One = Count 1 0
 
 mostCommon :: Count -> Bit
 mostCommon (Count zero one) 
-  | zero > one = Zero
+  | zero >= one = Zero
   | otherwise = One
 
 count :: [Byte] -> M.Map Int Count
@@ -58,11 +58,22 @@ count = foldr count' M.empty
       countBit :: (Bit, Int) -> M.Map Int Count -> M.Map Int Count
       countBit (bit, index) = M.insertWith (<>) index (getCount bit) 
 
-epsilon :: [Count] -> Int
-epsilon = toInt . Byte . map mostCommon
+countFilter :: (Int -> Count -> Byte -> Bool) -> [Byte] -> Byte
+countFilter f = go 0
+  where
+    go index [] = error "Should have a non-empty list"
+    go index (x:[]) = x
+    go index bytes = 
+      let counted = count bytes 
+      in go (index + 1) (filter (f index (counted M.! index)) bytes)
+      
 
-gamma :: [Count] -> Int
-gamma = toInt . Byte . map (inv . mostCommon)
+-- Normally !! is unsafe and inefficient, but for these short cases, we don't care about safety and efficiency
+oxygen :: [Byte] -> Byte
+oxygen = countFilter (\index count (Byte byte) -> byte !! index == inv (mostCommon count))
+
+carbondioxide :: [Byte] -> Byte
+carbondioxide = countFilter (\index count (Byte byte) -> byte !! index == mostCommon count)
 
 main :: IO ()
 main = do
@@ -71,6 +82,4 @@ main = do
   case res of 
     Left e -> print e
     Right bytes -> do
-      let counted = count bytes
-      let countedList = map (counted M.!) [0..(M.size counted - 1)]
-      print (epsilon countedList * gamma countedList)
+      print (toInt (oxygen bytes) * toInt (carbondioxide bytes))

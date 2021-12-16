@@ -20,6 +20,9 @@ pPosition = (,) <$> (read <$> many1 digit) <* char ',' <*> (read <$> many1 digit
 isLinear :: Instruction -> Bool
 isLinear (Instruction p1 p2) = fst p1 == fst p2 || snd p1 == snd p2
 
+isDiagonal :: Instruction -> Bool
+isDiagonal (Instruction p1 p2) = abs (fst p1 - fst p2) == abs (snd p1 - snd p2)
+
 draw :: [Instruction] -> M.Map Position Int
 draw = foldr drawInstruction M.empty . concatMap expand
   where
@@ -27,10 +30,16 @@ draw = foldr drawInstruction M.empty . concatMap expand
     drawInstruction position = M.insertWith (+) position 1
 
     expand :: Instruction -> [Position]
-    expand (Instruction p1 p2) = [(x, y) | x <- listFrom (fst p1) (fst p2), y <- listFrom (snd p1) (snd p2)]
+    expand i@(Instruction p1 p2) 
+      | isLinear i = [(x, y) | x <- listFrom (fst p1) (fst p2), y <- listFrom (snd p1) (snd p2)]
+      | isDiagonal i = zipWith (,) (listFromOrd (fst p1) (fst p2)) (listFromOrd (snd p1) (snd p2))
+      | otherwise = error "Should be linear or diagonal"
 
     listFrom :: Int -> Int -> [Int]
     listFrom a b = [min a b .. max a b]
+
+    listFromOrd :: Int -> Int -> [Int]
+    listFromOrd a b = enumFromThenTo a (if a < b then a + 1 else a - 1) b
 
 main :: IO ()
 main = do
@@ -39,5 +48,5 @@ main = do
   case res of 
     Left e -> print e
     Right instructions -> do
-      let fInstructions = filter isLinear instructions
+      let fInstructions = filter (\x -> isLinear x || isDiagonal x) instructions
       print (M.size $ M.filter (>= 2) $  draw fInstructions)

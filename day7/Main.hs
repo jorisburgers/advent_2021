@@ -10,7 +10,7 @@ pCrab :: Parser Int
 pCrab = read <$> many1 digit
 
 moveToCost :: [Int] -> Int -> Int
-moveToCost xs target = sum (map (\x -> abs (x - target)) xs)
+moveToCost xs target = sum (map (\x -> sum [1..abs (x - target)]) xs)
 
 allCosts :: [Int] -> M.Map Int Int
 allCosts xs = M.fromList [(x, moveToCost xs x) | x <- [minimum xs .. maximum xs]]

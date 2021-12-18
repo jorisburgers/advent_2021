@@ -1,6 +1,9 @@
 import Text.Parsec hiding (Line)
 import Text.Parsec.String
 
+import Data.Maybe (mapMaybe)
+import Data.List (sort)
+
 data SymbolType 
   = Smooth
   | Curly
@@ -30,23 +33,30 @@ pSymbol
   <|> Open Pointy <$ char '<'
   <|> Close Pointy <$ char '>'
 
-corrupted :: [Symbol] -> Maybe SymbolType
-corrupted = go []
+incomplete :: [Symbol] -> Maybe [SymbolType]
+incomplete = go []
   where
-    go :: [SymbolType] -> [Symbol] -> Maybe SymbolType
-    go stack [] = Nothing
+    go :: [SymbolType] -> [Symbol] -> Maybe [SymbolType]
+    go [] [] = Nothing
+    go stack [] = Just stack
     go stack (Open x:xs) = go (x : stack) xs
     go [] (Close x: xs) = go [] xs -- This should not occur for valid cases
     go (s:ss) (Close x:xs) 
       | s == x = go ss xs
-      | otherwise = Just x
+      | otherwise = Nothing -- This is a corrupt one, should fall in the case of corrupted
 
 points :: SymbolType -> Int
-points Smooth = 3
-points Curly  = 1197
-points Square = 57
-points Pointy = 25137
- 
+points Smooth = 1
+points Curly  = 3
+points Square = 2
+points Pointy = 4
+
+makeScore :: [SymbolType] -> Int
+makeScore = go 0
+  where
+    go n [] = n
+    go n (x:xs) = go (n * 5 + points x) xs
+
 main :: IO ()
 main = do
   let inputFile = "input"
@@ -54,5 +64,6 @@ main = do
   case res of 
     Left e -> print e
     Right lines -> do
-      print (sum $ map (maybe 0 points . corrupted) lines)
+      let scores = sort $  map makeScore (mapMaybe incomplete lines)
+      print (scores !! (length scores `div` 2))
       

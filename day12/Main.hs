@@ -10,6 +10,10 @@ data Cave
   | Small String
   deriving (Show, Eq, Ord)
 
+isSmall :: Cave -> Bool
+isSmall Small{} = True
+isSmall _ = False
+
 pCaves :: Parser [(Cave, Cave)]
 pCaves = sepBy pCaveLine endOfLine <* eof
 
@@ -32,7 +36,10 @@ neighbours haystack needle = mapMaybe neighbour haystack
       | otherwise = Nothing
 
 canVisit :: [Cave] -> Cave -> Bool
-canVisit visited current@(Small _) = not (current `elem` visited)
+canVisit visited current@(Small _) = not (current `elem` visited) || not (hasDouble (filter isSmall visited))
+  where
+    hasDouble [] = False
+    hasDouble (x:xs) = x `elem` xs || hasDouble xs 
 canVisit visited End = True
 canVisit visited Start = not (Start `elem` visited)
 canVisit visited (Large _) = True

@@ -43,6 +43,13 @@ step (m, cInit) =
 showBoard :: M.Map (Int, Int) Int -> String
 showBoard m = concat $ map (maybe "\n" show . flip M.lookup m) [(x, y) | y <- [0..9], x <- [0..10]]
 
+allZero :: M.Map (Int, Int) Int -> Bool
+allZero = all (== 0)
+
+untilCount :: (a -> a) -> (a -> Bool) -> a -> (a, Int)
+untilCount f check x = go 0 x
+  where go n y = let fy = f y in if check fy then (fy, n) else go (n + 1) fy
+
 main :: IO ()
 main = do
   let inputFile = "input"
@@ -51,7 +58,9 @@ main = do
     Left e -> print e
     Right board -> do
       let b1 = toMap board
-      let (res, resCount) = iterate step (b1, 0) !! 100 
+      let ((res, resCount), iterationLoop) = untilCount step (\x -> allZero (fst x)) (b1, 0)
       print resCount
+      print iterationLoop
       putStrLn (showBoard res)
       
+

@@ -27,20 +27,27 @@ pRule = (\c1 c2 c3 -> ((c1, c2), c3)) <$> pLetter <*> pLetter <* string " -> " <
 pLetter :: Parser Letter
 pLetter = Letter <$> letter 
 
-expand :: M.Map (Letter, Letter) Letter -> [Letter] -> [Letter]
-expand rules [] = []
-expand rules [l] = [l]
-expand rules (l1:l2:ls) = new <> expand rules (l2:ls)
+expand :: M.Map (Letter, Letter) Letter -> M.Map (Letter, Letter) Int -> M.Map (Letter, Letter) Int
+expand rules hist = foldr join M.empty (M.toList hist)
   where
-    new = maybe [l1] (\l' -> [l1, l']) $ M.lookup (l1, l2) rules
+    join :: ((Letter, Letter), Int) -> M.Map (Letter, Letter) Int -> M.Map (Letter, Letter) Int
+    join (pair@(x, y), c) h = case M.lookup pair rules of
+      Nothing -> M.insertWith (+) pair c $! h
+      Just z -> M.insertWith (+) (x, z) c $! M.insertWith (+) (z, y) c $! h
 
-expandN :: Int -> M.Map (Letter, Letter) Letter -> [Letter] -> [Letter]
+expandN :: Int -> M.Map (Letter, Letter) Letter -> M.Map (Letter, Letter) Int -> M.Map (Letter, Letter) Int
 expandN 0 _ ls = ls
 expandN n rules ls = expandN (n - 1) rules (expand rules ls)
 
-histogram :: [Letter] -> M.Map Letter Int
-histogram [] = M.empty
-histogram (l:ls) = M.insertWith (+) l 1 $ histogram ls
+histogram :: [Letter] -> M.Map (Letter, Letter) Int
+histogram (l1:l2:ls) = M.insertWith (+) (l1, l2) 1 $ histogram (l2:ls)
+histogram _ = M.empty
+
+frequencies :: M.Map (Letter, Letter) Int -> M.Map Letter Int
+frequencies = M.map (\x -> (x + 1) `div` 2 ) . M.fromListWith (+) . concatMap f . M.toList 
+  where
+    f :: ((Letter, Letter), Int) -> [(Letter, Int)]
+    f ((x, y), c) = [(x, c), (y, c)]
 
 main :: IO ()
 main = do
@@ -49,8 +56,8 @@ main = do
   case res of 
     Left e -> print e
     Right (formula, rules) -> do
-      let iter10 = expandN 10 rules formula
-      let hist = M.toList $ histogram iter10
+      let iterN = expandN 40 rules (histogram formula)
+      let hist = M.toList $ frequencies iterN
       let (_, min) = minimumBy (compare `on` snd) hist
       let (_, max) = maximumBy (compare `on` snd) hist
       print (max - min)

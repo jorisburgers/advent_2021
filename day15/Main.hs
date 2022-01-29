@@ -16,6 +16,19 @@ pLine = many1 ((read . (:[])) <$> digit)
 mkBoard :: [[Int]] -> Board
 mkBoard doubleList = M.fromList $ concat $ zipWith (\line y -> zipWith (\i x -> ((x, y), i)) line [0..]) doubleList [0..]
 
+expand :: Int -> [[Int]] -> [[Int]]
+expand mul b = let
+  upFactor :: Int -> Int -> Int
+  upFactor factor v
+    | v + factor > 9 = v + factor - 9
+    | otherwise = v + factor
+
+
+
+  high :: [[Int]]
+  high = map (\row -> concatMap (\factor -> map (upFactor (factor :: Int)) (row :: [Int])) [0..mul-1]) b
+  in concatMap (\factor -> map (map (upFactor factor)) high) [0..mul-1]
+
 data Weight 
   = Number Int
   | Infinity
@@ -30,39 +43,40 @@ instance Ord Weight where
 neighbours :: (Int, Int) -> [(Int, Int)]
 neighbours (x, y) = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
 
-type NodeValue = (Maybe (Int, Int), Weight, Bool)
+type NodeValue = (Weight, Bool)
 
-shortestPath :: Board -> M.Map (Int, Int) NodeValue
+shortestPath :: Board -> M.Map (Int, Int) Weight
 shortestPath board = go init
   where
-    go ::  M.Map (Int, Int) NodeValue -> M.Map (Int, Int) NodeValue
+    maxCoord :: (Int, Int)
+    maxCoord = fst $ M.findMax board
+
+    go ::  M.Map (Int, Int) Weight -> M.Map (Int, Int) Weight
     go b = case smallest b of
       Nothing -> b
       Just (k, w) -> 
-        let ns = map (\k -> (k, M.lookup k board)) $ neighbours k
-        in go $ M.adjust markVisited k $ foldr (updateNeighbours k w) b ns
+        let next = if k == maxCoord then id else (go . M.delete k)
+            ns = map (\k -> (k, M.lookup k board)) $ neighbours k
+        in next $ foldr (updateNeighbours w) b ns
       
-    updateNeighbours :: (Int, Int) -> Int -> ((Int, Int), Maybe Int) -> M.Map (Int, Int) NodeValue  -> M.Map (Int, Int) NodeValue
-    updateNeighbours _ _ (_, Nothing) b = b
-    updateNeighbours origK distK (n, Just w) b =
-      let alt = distK + w in M.adjust (\nDist@(prev, dist, visited) -> if Number alt < dist then (Just origK, Number alt, visited) else nDist) n b
+    updateNeighbours :: Int -> ((Int, Int), Maybe Int) -> M.Map (Int, Int) Weight  -> M.Map (Int, Int) Weight
+    updateNeighbours _ (_, Nothing) b = b
+    updateNeighbours distK (n, Just w) b =
+      let alt = distK + w in M.adjust (\dist -> if Number alt < dist then Number alt else dist) n b
 
-    markVisited :: NodeValue -> NodeValue
-    markVisited (x, y, False) = (x, y, True)
         
 
-    init :: M.Map (Int, Int) NodeValue
-    init = M.insert (0, 0) (Nothing, Number 0, False) $ M.map (\_ -> (Nothing, Infinity, False)) board
+    init :: M.Map (Int, Int) Weight
+    init = M.insert (0, 0) (Number 0) $ M.map (\_ -> Infinity) board
 
-    smallest :: M.Map (Int, Int) NodeValue -> Maybe ((Int, Int), Int) 
+    smallest :: M.Map (Int, Int) Weight -> Maybe ((Int, Int), Int) 
     smallest = M.foldrWithKey join Nothing
       where
-        join :: (Int, Int) -> (a, Weight, Bool) -> Maybe ((Int, Int), Int) -> Maybe ((Int, Int), Int) 
-        join _ (_, _, True) x = x
-        join _ (_, Infinity, _) Nothing = Nothing
-        join k (_, Number w, _) Nothing = Just (k, w)
-        join k (_, Infinity, _) (Just x) = Just x
-        join k (_, Number w, _) (Just (k', w')) = if w < w' then Just (k, w) else Just (k', w')
+        join :: (Int, Int) -> Weight -> Maybe ((Int, Int), Int) -> Maybe ((Int, Int), Int) 
+        join _ Infinity Nothing = Nothing
+        join k (Number w) Nothing = Just (k, w)
+        join k Infinity (Just x) = Just x
+        join k (Number w) (Just (k', w')) = if w < w' then Just (k, w) else Just (k', w')
 
 
 
@@ -73,7 +87,9 @@ main = do
   case res of 
     Left e -> print e
     Right board -> do
-      let shortest = shortestPath $ mkBoard board
+      -- print $ mkBoard $ expand 5 $ [[8]]
+      let lb = mkBoard $ expand 5 $ board
+      print (length $ M.keys lb)
+      let shortest = shortestPath lb
       let (k, v) = M.findMax shortest
-      let (prev, length, _visited) = v
-      print length
+      print v

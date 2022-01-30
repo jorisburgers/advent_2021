@@ -90,6 +90,16 @@ sumVersion p = packetVersion p + sumSub (packetValue p)
     sumSub (Literal{}) = 0
     sumSub (Operator packets) = sum (map sumVersion packets) 
 
+eval :: Packet -> Int
+eval (Packet version 0 (Operator ss)) = sum (map eval ss)
+eval (Packet version 1 (Operator ss)) = product (map eval ss)
+eval (Packet version 2 (Operator ss)) = minimum (map eval ss)
+eval (Packet version 3 (Operator ss)) = maximum (map eval ss)
+eval (Packet version 4 (Literal l)) = l
+eval (Packet version 5 (Operator [s1, s2])) = if eval s1 > eval s2 then 1 else 0
+eval (Packet version 6 (Operator [s1, s2])) = if eval s1 < eval s2 then 1 else 0
+eval (Packet version 7 (Operator [s1, s2])) = if eval s1 == eval s2 then 1 else 0
+
 main :: IO ()
 main = do
   let inputFile = "input"
@@ -99,4 +109,4 @@ main = do
   case res of 
     Left e -> print e
     Right (packet, _bits_parsed) -> do
-      print (sumVersion packet)
+      print (eval packet)
